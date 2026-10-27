@@ -416,4 +416,5 @@ Acceptance checks:
    by plan cost?
 
 Sandbox removal is settled (§3). Signing setup is settled
-(`docs/LOCAL_SIGNING.md`).
+(`docs/LOCAL_SIGNING.md`). The two-provider refactor is scoped in
+`docs/REFACTOR_PROVIDERS.md` and comes before any visible Muse UI.

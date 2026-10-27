@@ -2,7 +2,8 @@
 
 Context for any coding agent working in this repo. Read this before changing
 code. The detailed implementation plan for the feature this fork exists for is
-in `docs/MUSE_INTEGRATION.md`.
+in `docs/MUSE_INTEGRATION.md`, and the refactor that comes next is in
+`docs/REFACTOR_PROVIDERS.md`.
 
 ---
 
@@ -40,17 +41,26 @@ Everything else follows from that:
 
 ---
 
-## 2. Current state (verified 2026-10-26)
+## 2. Current state — where the work stopped (verified 2026-10-27)
 
-- `main` is upstream `3.5.0` plus documentation, the sandbox removal
-  (`cd3e48b`), and the Muse CLI reader: `Models/MuseUsageData.swift`,
-  `Helpers/MuseCLIClassification.swift`, `Services/MuseCLILocator.swift`,
-  `Services/MuseAPIService.swift`, with tests. It is **not wired into the app
-  yet** — nothing calls `MuseAPIService`. That is step 3.
-- Baseline is green. Confirm it before you start, so you know a later failure
-  is yours:
+`main` = upstream `3.5.0` + the fork's own commits:
+
+| Commit | What it did |
+|---|---|
+| `565565e` | `AGENTS.md` + `docs/MUSE_INTEGRATION.md` |
+| `cd3e48b` | removed App Sandbox (both the entitlement and `ENABLE_APP_SANDBOX`) |
+| `5c31cd3` | local signing identity + `docs/LOCAL_SIGNING.md` |
+| `4516724` | Muse CLI reader: model, classifier, locator, subprocess service, 38 tests |
+
+**Muse is not wired into the app.** Nothing calls `MuseAPIService`; there is no
+`ProviderType.muse`. That is deliberate: the next change is the
+two-provider → N-provider refactor, and `docs/REFACTOR_PROVIDERS.md` is the
+measured inventory and execution order for it. **Start there.**
+
+- Baseline is green:
   - `swift test` → 408 tests, 0 failures
   - `xcodebuild -project Usage4Claude.xcodeproj -scheme Usage4Claude-Debug -configuration Debug -derivedDataPath /tmp/u4c-dd build` → `BUILD SUCCEEDED`, signed with the local `Usage4Claude-CodeSigning` identity
+  - `python3 scripts/check_l10n.py` → 7 languages, 384 keys each
 - The app is **hardcoded for exactly two providers**. `isMultiProviderActive`
   is a `Bool`, the detail window is 290pt for one provider and 580pt for two,
   and `switch` statements over `ProviderType` deliberately have no `default:`.
@@ -189,8 +199,13 @@ not silence those errors with a `default:` branch.
 
 ## 6. Adding a provider — the checklist
 
-The authoritative, file-by-file plan with rationale is
-`docs/MUSE_INTEGRATION.md`. Summary of the blast radius:
+Two documents are authoritative, in this order:
+
+1. `docs/REFACTOR_PROVIDERS.md` — the measured inventory of every place the
+   "exactly two providers" assumption lives, and the order to unwind it.
+2. `docs/MUSE_INTEGRATION.md` — the Muse CLI contract and the feature plan.
+
+Summary of the blast radius:
 
 | Area | Files |
 |---|---|
