@@ -192,7 +192,7 @@ nonisolated struct MuseUsageResponse: Codable, Sendable {
         let tier: String?
         let window: Window
         let weekly: Window
-        let asOfMs: Double
+        let asOfMs: Double?      // optional on the wire, falls back to parse time
         let source: String?
     }
 
@@ -238,42 +238,39 @@ one commit.
 - Remaining human check: launch the app and confirm Claude and Codex still
   refresh and do not re-prompt for the Keychain more than once.
 
-### Step 2 — CLI locator and service (no UI yet)
+### Step 2 — CLI locator and service (DONE, no UI yet)
 
-New `Services/MuseCLILocator.swift`:
+Built and covered by tests:
 
-```swift
-enum MuseCLILocator {
-    static var candidatePaths: [String] { [
-        "\(NSHomeDirectory())/.local/bin/muse",
-        "/opt/homebrew/bin/muse",
-        "/usr/local/bin/muse"
-    ] }
-    static func locate() -> URL?
-}
-```
+| File | Role |
+|---|---|
+| `Models/MuseUsageData.swift` | Wire model, normalized model, parser, parse errors |
+| `Helpers/MuseCLIClassification.swift` | exit code + stdout/stderr → success / not-signed-in / empty / failed |
+| `Services/MuseCLILocator.swift` | Absolute-path lookup with an injectable executable check |
+| `Services/MuseAPIService.swift` | `Process` runner: 10s timeout, SIGTERM then SIGKILL, concurrent pipe drain, main-thread completion |
+| `Tests/.../MuseUsageResponseTests.swift` | 20 parsing tests |
+| `Tests/.../MuseCLIHelpersTests.swift` | 18 classification + locator tests |
 
-- Check `isExecutableFile` on each candidate. Do **not** rely on `PATH`; a
-  Finder-launched app has a minimal environment.
-- Honour an optional override path from settings (useful if Muse lands
-  elsewhere).
+Decisions that differ from the original sketch:
 
-New `Services/MuseAPIService.swift: UsageProvider`:
+- **No `UsageProvider` conformance yet.** That protocol needs
+  `ProviderType.muse`, and adding the enum case breaks every exhaustive switch
+  in the app. It lands with step 3/4 so this step stays additive.
+- **Two error types, one flat service enum.** Parsing throws
+  `MuseUsageParseError` (pure); `MuseAPIService.ServiceError` flattens parse,
+  process and classification failures so the refresh layer switches once.
+  Neither carries user-facing text: localization happens in the view layer.
+- **`asOfMs` is optional** in the model, falling back to the parse time, so a
+  dropped field degrades instead of failing the whole fetch.
+- **Percentages are clamped to 0...100** and non-finite values become 0.
+- **Exit 0 with empty stdout is a failure**, not a 0% reading.
 
-- `providerType = .muse`, implement `cancelAllRequests()`.
-- `func fetchUsage(completion: @escaping (Result<MuseUsageData, Error>) -> Void)`
-- `Process` + `Pipe`, `standardOutput`/`standardError` captured, environment
-  inherited, 10-second hard timeout that calls `terminate()`.
-- Never assume the CLI returns quickly and never block the main thread
-  (`Process.waitUntilExit` on a background queue, or `terminationHandler`).
-- A dedicated `enum MuseUsageError: LocalizedError` with `.cliNotFound`,
-  `.notSignedIn`, `.timedOut`, `.schemaUnsupported(Int)`, `.malformedOutput`,
-  `.commandFailed(String)` so the UI can branch. Classify `.notSignedIn` by
-  matching `not logged in` in stderr — that string is the CLI's contract and
-  is safer than parsing exit codes alone.
+Verified end to end outside the app with a throwaway `swiftc` harness:
 
-Add both new pure files to `Package.swift` `sources:` when they contain no UI
-or `L.*` dependencies, and write decoder tests immediately.
+- real CLI → `window`/`weekly` parsed, completion on main thread
+- stub CLI exiting 1 with "not logged in" → `notSignedIn`
+- missing path → `cliNotFound(searched:)`
+- `sleep 60` stub with a 1s timeout → `timedOut` after 1.2s, child terminated
 
 ### Step 3 — refresh plumbing
 

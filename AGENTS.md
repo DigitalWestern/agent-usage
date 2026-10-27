@@ -42,12 +42,14 @@ Everything else follows from that:
 
 ## 2. Current state (verified 2026-10-26)
 
-- `main` is upstream `3.5.0` plus documentation and one build change: App
-  Sandbox is **off** (`cd3e48b`) so the Muse CLI can be executed. No Muse code
-  exists yet.
+- `main` is upstream `3.5.0` plus documentation, the sandbox removal
+  (`cd3e48b`), and the Muse CLI reader: `Models/MuseUsageData.swift`,
+  `Helpers/MuseCLIClassification.swift`, `Services/MuseCLILocator.swift`,
+  `Services/MuseAPIService.swift`, with tests. It is **not wired into the app
+  yet** — nothing calls `MuseAPIService`. That is step 3.
 - Baseline is green. Confirm it before you start, so you know a later failure
   is yours:
-  - `swift test` → 370 tests, 0 failures
+  - `swift test` → 408 tests, 0 failures
   - `xcodebuild -project Usage4Claude.xcodeproj -scheme Usage4Claude-Debug -configuration Debug -derivedDataPath /tmp/u4c-dd build` → `BUILD SUCCEEDED`, signed with the local `Usage4Claude-CodeSigning` identity
 - The app is **hardcoded for exactly two providers**. `isMultiProviderActive`
   is a `Bool`, the detail window is 290pt for one provider and 580pt for two,
@@ -112,6 +114,13 @@ python3 scripts/check_l10n.py
 - The `.xcodeproj` uses `PBXFileSystemSynchronizedRootGroup` (object version
   77), so **new `.swift` files under `Usage4Claude/` are picked up
   automatically**. You do not edit `project.pbxproj` to add files.
+- **Run a clean build after adding files.** An incremental `xcodebuild` can
+  finish with `BUILD SUCCEEDED` without compiling new files in a synchronized
+  group, linking stale objects. `... -derivedDataPath /tmp/u4c-dd clean build`
+  once per added file, then verify with
+  `nm /tmp/u4c-dd/Build/Products/Debug/Usage4Claude.app/Contents/MacOS/Usage4Claude.debug.dylib | grep <Type>`.
+  Debug builds keep the real code in `Usage4Claude.debug.dylib`; the
+  `Usage4Claude` executable is a stub, so `strings` on it proves nothing.
 - `Package.swift` is the exception: its `sources:` list is an explicit
   allowlist. A new pure-function file is invisible to `swift test` until you
   add it there.
@@ -134,11 +143,14 @@ Usage4Claude/
     Account.swift                 per-provider account record
     ClaudeAPIResponseModels.swift Claude response models (pure, testable)
     CodexUsageData.swift          Codex models + parsing (pure, testable)
+    MuseUsageData.swift           Muse CLI payload + parsing (pure, testable)
     CodexSessionTokenRotation.swift
     UserSettings + Appearance/LaunchAtLogin/Monitoring splits
   Services/
     ClaudeAPIService.swift        cookie + OAuth paths
     CodexAPIService.swift         two-step auth
+    MuseAPIService.swift          runs `muse usage --json` in a subprocess (step 2, unused)
+    MuseCLILocator.swift          absolute-path lookup for the muse binary (pure, testable)
     OAuthTokenCache.swift         actor, single-flight token refresh
     KeychainManager.swift         Keychain (UserDefaults with DEBUG_ prefix in DEBUG)
     NotificationManager.swift
