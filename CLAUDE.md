@@ -1,5 +1,12 @@
 # Usage4Claude — Project Overview
 
+> **Start with [`AGENTS.md`](AGENTS.md).** This fork exists to add Muse Code as a
+> third provider; the goals, decisions, build commands, conventions, pitfalls and
+> the completed-feature checklist live there. The Muse CLI contract and the
+> file-by-file plan are in [`docs/MUSE_INTEGRATION.md`](docs/MUSE_INTEGRATION.md).
+> This file is upstream's original overview, kept for the upstream-specific
+> detail it carries.
+
 A macOS menu bar app that monitors Claude / Codex subscription usage. Swift + SwiftUI + AppKit, targeting macOS 13+.
 
 ## Build & Test

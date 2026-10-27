@@ -1,5 +1,10 @@
 # Usage4Claude
 
+> **Personal fork.** This is Ethan's fork (`DigitalWestern/agent-usage`) of
+> [f-is-h/Usage4Claude](https://github.com/f-is-h/Usage4Claude), adding Muse Code
+> as a third provider. It is built and run locally, not distributed. Agents and
+> contributors should read [`AGENTS.md`](AGENTS.md) first.
+
 [English](README.md) | [日本語](docs/README.ja.md) | [简体中文](docs/README.zh-CN.md) | [繁體中文](docs/README.zh-TW.md) | [한국어](docs/README.ko.md) | [Français](docs/README.fr.md) | [Deutsch](docs/README.de.md)
 
 <div align="center">
