@@ -254,9 +254,13 @@ Fork-specific files (`AGENTS.md`, `docs/MUSE_INTEGRATION.md`, the Muse
 provider files) should never conflict with upstream. Codex-related bug fixes
 from upstream are worth taking; do not drift.
 
-The release workflow only triggers on `CHANGELOG.md` / `docs/RELEASE_NOTES.md`
-changes. This fork should not edit those files except when merging upstream,
-where the upstream commit is theirs, not ours.
+The fork's release workflow is **manual-only**: the upstream push trigger was
+removed in `3be0e2b`, because this fork has no signing secrets and publishes
+nothing. GitHub also keeps workflows on a new fork disabled until they are
+enabled once in the Actions tab; `Test` is the only one worth enabling.
+
+Do not edit `CHANGELOG.md` or `docs/RELEASE_NOTES.md` except when merging
+upstream. Releases are upstream's job.
 
 ---
 
