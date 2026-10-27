@@ -1,13 +1,9 @@
 name: Build and Release
 
+# Fork note: upstream releases on a push that touches CHANGELOG.md or
+# docs/RELEASE_NOTES.md. This fork does not publish releases and has no signing
+# secrets, so the trigger is removed and the workflow stays manual-only.
 on:
-  push:
-    branches:
-      - main
-      - test-release
-    paths:
-      - 'CHANGELOG.md'
-      - 'docs/RELEASE_NOTES.md'
   workflow_dispatch:
     inputs:
       dry_run:
