@@ -112,9 +112,13 @@ depend on them in the app; they exist only for manual testing.
 
 ---
 
-## 3. The blocker: App Sandbox
+## 3. The blocker: App Sandbox — RESOLVED
 
-`Config/Usage4Claude.entitlements` currently enables the sandbox:
+**Done in `cd3e48b`.** The sandbox is off; Step 1 of §5 no longer needs doing.
+The analysis stays here because it is the reason the sandbox must not come
+back.
+
+`Config/Usage4Claude.entitlements` originally enabled the sandbox:
 
 ```xml
 <key>com.apple.security.app-sandbox</key>
@@ -136,11 +140,14 @@ There is no entitlement that grants an arbitrary child process. The options:
 | C. Ship the Muse binary inside the app bundle | binary needs its own update channel and credentials outside the container; still blocked | Rejected |
 | D. XPC helper + app group | days of work for one menu bar app | Rejected |
 
-### Change
+### Change (applied)
 
 Remove `com.apple.security.app-sandbox` (and the Sparkle XPC
 `temporary-exception` array that exists only because of it) from
-`Config/Usage4Claude.entitlements`. Keep `network.client`:
+`Config/Usage4Claude.entitlements`, set `ENABLE_APP_SANDBOX = NO` in both
+build configurations of `Usage4Claude.xcodeproj`, and drop
+`ENABLE_USER_SELECTED_FILES` which only applies under the sandbox. Keep
+`network.client`:
 
 ```xml
 <key>com.apple.security.network.client</key>
@@ -154,7 +161,8 @@ so it is not Mac App Store eligible and Sparkle's sandbox-specific XPC
 services are no longer used. Neither matters for this fork.
 
 Because this is a security-relevant change, tell Ethan before making it, and
-keep it in its own commit so it can be reverted independently.
+keep it in its own commit so it can be reverted independently. That is what
+`cd3e48b` is.
 
 ---
 
@@ -223,11 +231,12 @@ Pick a hue not already used by Claude (green/orange/red, purple, pink) or Codex
 Each step should leave the app building and running. Do not batch these into
 one commit.
 
-### Step 1 — sandbox off (independent, revertable)
+### Step 1 — sandbox off (DONE, `cd3e48b`)
 
-- Edit `Config/Usage4Claude.entitlements`.
-- Build, run, confirm Claude and Codex still refresh.
-- Commit alone.
+- `Config/Usage4Claude.entitlements`, `ENABLE_APP_SANDBOX`,
+  `ENABLE_USER_SELECTED_FILES` changed; build verified signed and unsandboxed.
+- Remaining human check: launch the app and confirm Claude and Codex still
+  refresh and do not re-prompt for the Keychain more than once.
 
 ### Step 2 — CLI locator and service (no UI yet)
 
@@ -379,10 +388,10 @@ time ~/.local/bin/muse usage --json
 # Not-signed-in behaviour, without touching the real credentials
 HOME=$(mktemp -d) ~/.local/bin/muse-bin-* usage --json; echo "exit=$?"
 
-# App
+# App (signed; run scripts/setup-local-signing.sh once per machine)
 xcodebuild -project Usage4Claude.xcodeproj -scheme Usage4Claude-Debug \
-  -configuration Debug -derivedDataPath /tmp/u4c-dd \
-  CODE_SIGNING_ALLOWED=NO build
+  -configuration Debug -derivedDataPath /tmp/u4c-dd build
+codesign -dv /tmp/u4c-dd/Build/Products/Debug/Usage4Claude.app 2>&1 | grep Authority
 open /tmp/u4c-dd/Build/Products/Debug/Usage4Claude.app
 swift test
 python3 scripts/check_l10n.py
@@ -408,4 +417,6 @@ Acceptance checks:
    Claude/Codex both expose this per limit; pick the same default as Codex.
 2. **Column order** when all three are on: Claude, Codex, Muse (planned), or
    by plan cost?
-3. **Sandbox**: confirm removal is acceptable (§3). It is the only cheap path.
+
+Sandbox removal is settled (§3). Signing setup is settled
+(`docs/LOCAL_SIGNING.md`).

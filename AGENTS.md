@@ -42,11 +42,13 @@ Everything else follows from that:
 
 ## 2. Current state (verified 2026-10-26)
 
-- `main` is upstream `3.5.0` plus documentation. **No Muse code exists yet.**
+- `main` is upstream `3.5.0` plus documentation and one build change: App
+  Sandbox is **off** (`cd3e48b`) so the Muse CLI can be executed. No Muse code
+  exists yet.
 - Baseline is green. Confirm it before you start, so you know a later failure
   is yours:
   - `swift test` → 370 tests, 0 failures
-  - `xcodebuild -project Usage4Claude.xcodeproj -scheme Usage4Claude-Debug -configuration Debug -derivedDataPath /tmp/u4c-dd CODE_SIGNING_ALLOWED=NO build` → `BUILD SUCCEEDED`
+  - `xcodebuild -project Usage4Claude.xcodeproj -scheme Usage4Claude-Debug -configuration Debug -derivedDataPath /tmp/u4c-dd build` → `BUILD SUCCEEDED`, signed with the local `Usage4Claude-CodeSigning` identity
 - The app is **hardcoded for exactly two providers**. `isMultiProviderActive`
   is a `Bool`, the detail window is 290pt for one provider and 580pt for two,
   and `switch` statements over `ProviderType` deliberately have no `default:`.
@@ -61,12 +63,13 @@ Everything else follows from that:
    engineer the HTTP endpoint or read `~/.config/muse/auth.json`. The CLI owns
    authentication, token refresh and the schema; reimplementing them is how
    this app breaks every time Muse ships a change.
-2. **The local build runs without App Sandbox.**
-   `Config/Usage4Claude.entitlements` currently sets
-   `com.apple.security.app-sandbox = true`, which blocks both spawning a
-   subprocess and reading `~/.config/muse`. Turning the sandbox off is the
-   cheapest correct fix for a personal build. Read
-   `docs/MUSE_INTEGRATION.md` §3 before changing it.
+2. **App Sandbox stays off.** Done in `cd3e48b`; both `Config/Usage4Claude.entitlements`
+   and `ENABLE_APP_SANDBOX` in the Xcode project are set to off. Under the
+   sandbox the app cannot exec the `muse` binary or read `~/.config/muse`, and
+   no entitlement grants either. Do not re-enable it, and do not add a
+   `default:` fallback that silently drops Muse when the CLI is unavailable.
+   Rationale and the alternatives that were rejected are in
+   `docs/MUSE_INTEGRATION.md` §3.
 3. **Keep the product name and bundle ID** (`Usage4Claude`,
    `xyz.fi5h.Usage4Claude`). Renaming touches the Xcode project, Sparkle keys,
    the Keychain service names and all 7 localization files. That is a separate
@@ -85,21 +88,27 @@ Everything else follows from that:
 # 1. Unit tests (fast, ~3s, no Xcode UI needed)
 swift test
 
-# 2. Build the app for local use
+# 2. Build the app for local use (signing identity required, see below)
 xcodebuild -project Usage4Claude.xcodeproj \
   -scheme Usage4Claude-Debug -configuration Debug \
-  -derivedDataPath /tmp/u4c-dd CODE_SIGNING_ALLOWED=NO build
+  -derivedDataPath /tmp/u4c-dd build
 open /tmp/u4c-dd/Build/Products/Debug/Usage4Claude.app
 
 # 3. Localization parity (7 languages, enforced upstream in CI)
 python3 scripts/check_l10n.py
 ```
 
+- **Signing is one-time setup.** Run `./scripts/setup-local-signing.sh` once per
+  machine. It creates the self-signed `Usage4Claude-CodeSigning` identity the
+  Xcode project expects. Without it, builds fall back to ad-hoc signing, and
+  macOS asks for your password on every rebuild when the app touches Keychain.
+  See `docs/LOCAL_SIGNING.md`.
 - `./scripts/build.sh` is upstream's release packager. It archives, exports and
-  builds a DMG, and expects a signing identity. **Use the `xcodebuild` command
-  above for development**, not `build.sh`.
-- Xcode scheme: `Usage4Claude-Debug`. Set a development team in Xcode if
-  signing prompts appear; the `CODE_SIGNING_ALLOWED=NO` build needs none.
+  builds a DMG. **Use the `xcodebuild` command above for development**, not
+  `build.sh`.
+- `CODE_SIGNING_ALLOWED=NO` still compiles and is fine for a quick check on a
+  machine without the identity, but it produces an ad-hoc signed app. Do not
+  ship yourself that build.
 - The `.xcodeproj` uses `PBXFileSystemSynchronizedRootGroup` (object version
   77), so **new `.swift` files under `Usage4Claude/` are picked up
   automatically**. You do not edit `project.pbxproj` to add files.
@@ -211,10 +220,14 @@ The authoritative, file-by-file plan with rationale is
 
 ## 8. Pitfalls that have already bitten this repo
 
-- **App Sandbox blocks child processes.** Under
-  `com.apple.security.app-sandbox`, `Process` cannot exec an external binary
-  and the app cannot read `~/.config/muse`. This is the gate on the whole
-  feature.
+- **App Sandbox was the gate, and it is now off.** `ENABLE_APP_SANDBOX = YES`
+  in the Xcode project injects the sandbox entitlement even when the
+  entitlements file says false. Both have to be off, or `Process` silently
+  fails to launch the `muse` binary.
+- **Ad-hoc signed builds re-prompt for the Keychain.** If macOS suddenly asks
+  for your password on every rebuild, check `codesign -dv` for
+  `flags=ad-hoc`. Run `./scripts/setup-local-signing.sh` and rebuild. See
+  `docs/LOCAL_SIGNING.md`.
 - **GUI apps do not inherit the shell `PATH`.** Launching from Finder or
   Xcode means `~/.local/bin` is not on `PATH`. Resolve the binary against an
   explicit list of candidate paths and surface "Muse CLI not found" as a
