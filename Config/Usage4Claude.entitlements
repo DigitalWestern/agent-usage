@@ -2,29 +2,33 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!--
+	  FORK DEVIATION: App Sandbox is intentionally OFF (upstream has it on).
+
+	  The Muse Code provider reads usage by running the local `muse` CLI
+	  (~/.local/bin/muse). App Sandbox forbids exec'ing a binary outside the
+	  app bundle, and there is no entitlement that grants it. The sandbox also
+	  blocks reading ~/.config/muse. This fork is built and run locally by its
+	  owner and is never distributed, so the sandbox buys nothing here.
+
+	  Consequence: not Mac App Store eligible, and Sparkle's sandbox-only XPC
+	  services (the temporary-exception keys upstream carries) are no longer
+	  needed and have been removed.
+
+	  Re-enabling the sandbox means Muse support must be dropped or moved into
+	  an XPC helper. See docs/MUSE_INTEGRATION.md section 3.
+	-->
 	<key>com.apple.security.app-sandbox</key>
-	<true/>
+	<false/>
 	<key>com.apple.security.network.client</key>
 	<true/>
 	<!--
 	  OAuth 登录在本地起一个短时 NWListener（loopback）接收系统浏览器
-	  重定向回来的授权码。App Sandbox 下监听传入连接需要此 entitlement，
-	  否则 NWListener 会进入 .failed（权限拒绝）。见 CodexOAuth/OAuthCallbackServer。
+	  重定向回来的授权码（CodexOAuth/OAuthCallbackServer）。App Sandbox
+	  已关闭，此 entitlement 在无沙盒时被忽略，保留是为了将来若重新开启
+	  沙盒时登录流程仍然可用。
 	-->
 	<key>com.apple.security.network.server</key>
 	<true/>
-	<!--
-	  Sparkle 2.x under App Sandbox: lets the main app reach Sparkle's
-	  Installer (-spki) and Status (-spks) XPC services bundled inside
-	  the Sparkle framework. Without these the one-click install fails
-	  under the sandbox. See https://sparkle-project.org/documentation/sandboxing/
-	  (SUEnableDownloaderService is intentionally omitted — the app has
-	  network.client, so Sparkle downloads in-process.)
-	-->
-	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
-	<array>
-		<string>$(PRODUCT_BUNDLE_IDENTIFIER)-spks</string>
-		<string>$(PRODUCT_BUNDLE_IDENTIFIER)-spki</string>
-	</array>
 </dict>
 </plist>
